@@ -1,0 +1,39 @@
+Simon Bence blender modellezés Számítógépes grafika gyakorlat 2023 őszi félév
+
+Spongyabob rozsdás rákolló modell
+
+1. Cylinder mesh (fő test):
+- x mentén 90 fokos forgatás, z skálázás 1.8-szoros méretre
+- a cylynder alja és oldalainak törlése
+- test 1.5-szeresére növelés y mentén
+
+2. Cylinder mesh (oldalak)
+- eltolás y mentén 1.8 m-el
+- x mentén 90 fok forgatás
+- skálázás x -> 1.2, y -> 1.8, z -> 0.1
+- knife tool-lal test elfelezése, hogy félkörívet kapjunk
+- apróbb hibák kijavítása dissolve-al
+- félkörív aljának befedése extrude region-al
+
+3. Cylinder mesh (másik oldal)
+- első oldal másolása shift d-vel
+- helyes pozíció megtalálása y mentén
+
+4. Plane mesh (ajtó)
+- pozícionálás, forgatás, skálázás
+
+5. UV Sphere (kilincs)
+- pozícionálás, forgatás, skálázás
+
+6. Cube (modell körüli fal)
+- pozícionálás, forgatás, skálázás
+- loop cut-tal feldarabolás kisebb kockákra
+- extrude-region-al meghosszabbítani a két szélén
+
+7. Cube & Plane (rozsdás rákolló felirat)
+- pozícionálás, forgatás, skálázás
+- bevel-lel formázás
+- felesleges élek törlése
+
+8. Text (maga a felirat)
+- pozícionálás, forgatás, skálázás

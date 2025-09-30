@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="author" content="Simon Bence">
+    <meta name="description" content="Spongyabob világa">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js Nagy beadandó</title>
+
+    <style>
+        body { margin: 0 }
+        canvas { width: 100%; height: 100% }
+        #nev {
+            position: absolute;
+            top: 8%;
+            left: 10%;
+            transform: translate(-50%, -50%);
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 20px;
+            color: #fff;
+            text-align: center;
+        }
+        #infopanel {
+            position: absolute;
+            display: block;
+            top: 8%;
+            left: 80%;
+            transform: translate(-50%, -50%);
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 20px;
+            color: #fff;
+            text-align: center;
+            width: 50%;
+            padding: 10px;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="nev"></div>
+<div id="infopanel"></div>
+
+<script>
+    let nev = "Simon Bence <br> S5SR03 <br> Programtervező informatikus <br> 2023 őszi félév";
+    document.getElementById("nev").innerHTML = nev;
+</script>
+
+<script>
+    let megjelenites = "I - Információk megjelenítése/elrejtése <br> K - fények kikapcsolása" +
+        " <br> L - fények bekapcsolása <br>";
+    let infoPanel = document.getElementById("infopanel").innerHTML = megjelenites;
+
+    let infoVisible = true;
+
+    <!-- Információk megjelenítése/elrejtése, eseménykezelő -->
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'I' || event.key === 'i') {
+            if (infoVisible) {
+                document.getElementById("infopanel").style.display = "none";
+                document.getElementById("nev").style.display = "none";
+                infoVisible = false;
+            } else {
+                document.getElementById("infopanel").style.display = "block"
+                document.getElementById("nev").style.display = "block";
+                infoVisible = true;
+            }
+        }
+    });
+</script>
+
+<!-- importáljuk a modulokat, a three.js-t és a trackballcontrollert amivel mozgatjuk a kamerát -->
+<script async src="./dist/es-module-shims.js"></script>
+<script type="importmap">
+{
+    "imports": {
+        "three": "./js-r154/build/three.module.js",
+        "trackballcontrols": "./js-r154/examples/jsm/controls/TrackballControls.js"
+    }
+}
+</script>
+
+<script type="module">
+    import * as THREE from './js-r154/build/three.module.js';
+    import { TrackballControls } from './js-r154/examples/jsm/controls/TrackballControls.js';
+    import { OBJLoader } from './js-r154/examples/jsm/loaders/OBJLoader.js';
+    import {MTLLoader} from './js-r154/examples/jsm/loaders/MTLLoader.js';
+
+    // Globális változók
+    let WIDTH;
+    let HEIGHT;
+    let aspectRatio
+    let renderer;
+    let scene;
+    let camera;
+    let controls;
+
+    // animációhoz
+    let group;
+    let groupPoz
+    let groupDoor;
+
+
+    // blenderből exportált objektum betöltése (rozsdás rákolló)
+    let loader = new OBJLoader();
+    let mtlLoader = new MTLLoader();
+
+    mtlLoader.load(
+        'assets/models/rakollo.mtl',
+        (materials) => {
+            materials.preload();
+            loader.setMaterials(materials)
+                .load(
+                    'assets/models/rakollo.obj',
+                    (object) => {
+                        object.traverse((child) => {
+                            if (child instanceof THREE.Mesh) {
+                                child.material.side = THREE.DoubleSide;
+                            }
+                        });
+                        object.position.set(40, -5, 0);
+                        object.scale.set(4,4,4);
+                        object.rotation.y = 270 / 180 * Math.PI;
+                        scene.add(object);
+                    },
+                    (xhr) => {
+                        console.log((xhr.loaded / xhr.total * 100) + '% betöltődött');
+                    },
+                    (error) => {
+                        console.error('Hiba az OBJ fájl betöltése során', error);
+                    }
+                )
+        }
+    );
+
+
+    //blenderből exportált objektum betöltése (szandi ajtaja)
+    let loader2 = new OBJLoader();
+
+    loader2.load(
+        'assets/models/szandi_ajto.obj',
+        (object) => {
+            let sandyDoorMaterial = new THREE.MeshBasicMaterial( {color: 0x808080,transparent: true, opacity: 0.8, wireframe: false} );
+            object.traverse((child) => {
+                if (child instanceof THREE.Mesh) {
+                    child.material = sandyDoorMaterial;
+                }
+            });
+            object.position.set(15, -7.4, 9);
+            object.scale.set(1, 1.5, 1);
+            object.rotation.z = 0.05;
+            scene.add(object);
+        },
+        (xhr) => {
+            console.log((xhr.loaded / xhr.total * 100) + '% betöltődött');
+        },
+        (error) => {
+            console.error('Hiba az OBJ fájl betöltése során', error);
+        }
+    );
+
+    init();
+
+    animate();
+
+    function init() {
+
+        //változók inicializálása
+        WIDTH = window.innerWidth;
+        HEIGHT = window.innerHeight;
+        //képarány
+        aspectRatio = WIDTH / HEIGHT;
+
+        group = new THREE.Group();
+        groupDoor = new THREE.Group();
+        groupPoz = new THREE.Group()
+        group.add(groupDoor)
+        group.add(groupPoz)
+
+        renderer = new THREE.WebGLRenderer( { antialias: true } );
+        renderer.setSize( WIDTH, HEIGHT );
+        renderer.setClearColor( 0x000 );
+        document.body.appendChild( renderer.domElement );
+
+        scene = new THREE.Scene();
+
+        //kamera inicializálása
+        camera = new THREE.PerspectiveCamera( 75, aspectRatio, 0.1, 1000 );
+        camera.position.set( 0, 5, 15 );
+        camera.lookAt( scene.position );
+
+
+        /** 1. objektum tunyacsáp háza */
+
+        //ház alapja -> henger
+        let houseGeometry = new THREE.CylinderGeometry( 7, 10, 30, 50, 100 );
+        let houseMaterial = new THREE.MeshLambertMaterial( {color: 0x0A2472, wireframe: false} );
+        let house = new THREE.Mesh( houseGeometry, houseMaterial );
+        house.castShadow = true;
+        house.receiveShadow = true;
+
+        //ház pozíciója és elhelyezése a canvas-on
+        house.position.set( 0, 0, 0);
+        house.scale.set(0.5,0.5,0.5);
+        scene.add( house );
+
+        //ajtó geometriája -> doboz
+        let doorGeometry = new THREE.BoxGeometry(5, 8, 0.5, 30, 20, 50);
+        let doorMaterial = new THREE.MeshLambertMaterial({ color: 0x663300, wireframe: false});
+        let door = new THREE.Mesh(doorGeometry, doorMaterial);
+        door.castShadow = true;
+        door.receiveShadow = false;
+
+        //ajtó pozíciója és elhelyezése a házon
+        door.position.set(0, -5.5, 4.7);
+        door.scale.set(0.5,0.5,0.5);
+        door.rotation.x = 6.18;
+        scene.add( door );
+
+        //orr geometriája -> henger
+        let noseGeometry = new THREE.CylinderGeometry( 2, 4, 8, 6, 40);
+        let noseMaterial = new THREE.MeshLambertMaterial( {color: 0x123499, wireframe: false} );
+        let nose = new THREE.Mesh( noseGeometry, noseMaterial );
+        nose.castShadow = true;
+        nose.receiveShadow = false;
+
+        //orr pozíciója és elhelyezése a házon
+        nose.position.set( 0, 0, 4.2);
+        nose.scale.set(0.3,0.4,0.3);
+        nose.rotation.z= -1.62;
+        nose.rotation.x= 90 / 180 * Math.PI;
+        nose.rotation.y= 90 / 180 * Math.PI;
+        scene.add( nose )
+
+        //szemek geometriája -> henger
+        let eyesGeometry = new THREE.CylinderGeometry( 2, 2, 40, 40);
+        let eyesMaterial = new THREE.MeshLambertMaterial( {color: 0x123499, wireframe: false} );
+        let eyes = new THREE.Mesh( eyesGeometry, eyesMaterial );
+        eyes.castShadow = true;
+        eyes.receiveShadow = false;
+
+        //szemek pozíciója és elhelyezése a házon
+        eyes.position.set( 1.35, 1.1, 4);
+        eyes.rotation.z= -3.25;
+        eyes.rotation.x= 90 / 180 * Math.PI;
+        eyes.rotation.y= 90 / 180 * Math.PI;
+        eyes.scale.set(0.3,0.01,0.3);
+        scene.add( eyes );
+
+        //szemek geometriája -> henger
+        let eyes2Geometry = new THREE.CylinderGeometry( 2, 2, 40, 40);
+        let eyes2Material = new THREE.MeshLambertMaterial( {color: 0x123499, wireframe: false} );
+        let eyes2 = new THREE.Mesh( eyes2Geometry, eyes2Material );
+        eyes2.castShadow = true;
+        eyes2.receiveShadow = false;
+
+        //szemek pozíciója és elhelyezése a házon
+        eyes2.position.set( -1.35, 1.1, 4);
+        eyes2.rotation.z= -3.25;
+        eyes2.rotation.x= 90 / 180 * Math.PI;
+        eyes2.rotation.y= 90 / 180 * Math.PI;
+        eyes2.scale.set(0.3,0.01,0.3);
+        scene.add( eyes2 );
+
+        //szemöldök geometriája -> henger
+        let eyebrowsGeometry = new THREE.CylinderGeometry( 1, 1, 3, 4, 40);
+        let eyebrowsMaterial = new THREE.MeshLambertMaterial( {color: 0x123499, wireframe: false} );
+        let eyebrows = new THREE.Mesh( eyebrowsGeometry, eyebrowsMaterial );
+
+        //szemöldök pozíciója és elhelyezése a házon
+        eyebrows.position.set(0.05, 2.2, 4);
+        eyebrows.scale.set(0.5,1.5,0.5);
+        eyebrows.rotation.x= 45 / 180 * Math.PI;
+        eyebrows.rotation.z= 1.55;
+        scene.add( eyebrows );
+
+        //fülek geometriája -> doboz
+        let earsGeometry = new THREE.BoxGeometry( 20, 5, 5, 40);
+        let earsMaterial = new THREE.MeshLambertMaterial( {color: 0x123499, wireframe: false} );
+        let ears = new THREE.Mesh( earsGeometry, earsMaterial );
+
+        //fülek pozíciója és elhelyezése a házon
+        ears.position.set( 4.5, -1, 0);
+        ears.rotation.z= 96 / 180 * Math.PI;
+        ears.scale.set(0.3,0.3,0.3);
+        scene.add( ears );
+
+        //fülek geometriája -> doboz
+        let ears2Geometry = new THREE.BoxGeometry( 20, 5, 5, 40);
+        let ears2Material = new THREE.MeshLambertMaterial( {color: 0x123499, wireframe: false} );
+        let ears2 = new THREE.Mesh( ears2Geometry, ears2Material );
+        ears2.receiveShadow = true;
+        ears2.castShadow = false;
+
+        //fülek pozíciója és elhelyezése a házon
+        ears2.position.set( -4.5, -1, 0);
+        ears2.rotation.z= -96 / 180 * Math.PI;
+        ears2.scale.set(0.3,0.3,0.3);
+        scene.add( ears2 );
+
+        /** 1. objektum tunyacsáp háza */
+
+
+        /** 2. objektum patrik háza */
+
+        //félgömb geometriája -> félgömb
+        let halfSphereGeometry = new THREE.SphereGeometry( 5, 20, 20, 2, Math.PI * 2, 0, Math.PI / 2);
+        let halfSphereMaterial = new THREE.MeshLambertMaterial( {color: 0x371D10, wireframe: false} );
+        halfSphereMaterial.side = THREE.DoubleSide;
+        let halfSphere = new THREE.Mesh( halfSphereGeometry, halfSphereMaterial );
+        halfSphere.castShadow = true;
+        halfSphere.receiveShadow = false;
+
+        //félgömb pozíciója
+        halfSphere.position.set( -12, -6, 0);
+        halfSphere.rotation.z= 0;
+        scene.add( halfSphere );
+
+
+        // Nyilak létrehozása
+        let origin = new THREE.Vector3(-14,0, 0);  // Nyil kiindulási pontja
+        let direction = new THREE.Vector3(1, 0, 0);  // Nyil iránya
+        let length = 3;  // Nyil hossza
+
+        let origin2 = new THREE.Vector3(-13, -0.5, 0);  // Nyil kiindulási pontja
+        let direction2 = new THREE.Vector3(0, 1, 0);  // Nyil iránya
+        let length2 = 1;  // Nyil hossza
+
+        let origin3 = new THREE.Vector3(-13.5, -0.5, 0);  // Nyil kiindulási pontja
+        let direction3 = new THREE.Vector3(0, 1, 0);  // Nyil iránya
+        let length3 = 1;  // Nyil hossza
+
+        let origin4 = new THREE.Vector3(-12.5, -1, 0);  // Nyil kiindulási pontja
+        let direction4 = new THREE.Vector3(0, 1, );  // Nyil iránya
+        let length4 = 1;  // Nyil hossza
+
+        // Nyilak inicializálása
+        let arrow = new THREE.ArrowHelper(direction, origin, length, 0x964B00);
+        let arrow2 = new THREE.ArrowHelper(direction2, origin2, length2, 0x964B00);
+        let arrow3 = new THREE.ArrowHelper(direction3, origin3, length3, 0x964B00);
+        let arrow4 = new THREE.ArrowHelper(direction4, origin4, length4, 0x964B00);
+
+        // Nyilak hozzáadása a színtérhez
+        scene.add(arrow);
+        scene.add(arrow2);
+        scene.add(arrow3);
+        scene.add(arrow4);
+
+        scene.add(group);
+
+
+        /** 2. objektum patrik háza */
+
+
+        /** 3. objektum szandi háza */
+
+        //szandi ház geometriája -> gömb
+        let sandyHouseGeometry = new THREE.SphereGeometry( 8, 40, 50, 0, Math.PI * 2, 0, Math.PI / 2);
+        let sandyHouseMaterial = new THREE.MeshLambertMaterial( {color: 0x00FFFFFF, transparent: true, opacity: 0.1, wireframe: false} );
+        let sandyHouse = new THREE.Mesh( sandyHouseGeometry, sandyHouseMaterial );
+        sandyHouse.castShadow = true;
+        sandyHouse.receiveShadow = false;
+
+        sandyHouse.position.set( 15, -7, 0);
+        sandyHouse.rotation.z= 0.05;
+        scene.add( sandyHouse );
+
+        //ház alja geometriája -> henger
+        let sandyHouseBottomGeometry = new THREE.CylinderGeometry( 27, 27, 100, 100);
+        let sandyHouseBottomMaterial = new THREE.MeshLambertMaterial( {color: 0x00FF00, wireframe: false, transparent: true, opacity: 0.1} );
+        let sandyHouseBottom = new THREE.Mesh( sandyHouseBottomGeometry, sandyHouseBottomMaterial );
+
+        sandyHouseBottom.position.set( 15, -7, 0);
+        sandyHouseBottom.rotation.z= 0.05;
+        sandyHouseBottom.scale.set(0.3,0.001,0.3);
+        scene.add( sandyHouseBottom );
+
+        //mókuskerék geometria -> henger
+        let sandyWheelGeometry = new THREE.CylinderGeometry( 4, 4, 15, 15);
+        let sandyWheelMaterial = new THREE.MeshLambertMaterial({ color: 0x808080, wireframe: true});
+        let sandyWheel = new THREE.Mesh(sandyWheelGeometry, sandyWheelMaterial);
+
+        sandyWheel.position.set(11, -6, 1);
+        sandyWheel.rotation.z= 0.05;
+        sandyWheel.rotation.x= 90 / 180 * Math.PI;
+
+        sandyWheel.scale.set(0.3,0.06,0.3);
+        scene.add(sandyWheel);
+
+        //szandi fája geometria -> henger
+        let sandyTreeGeometry = new THREE.CylinderGeometry( 3, 3, 40, 40);
+        let sandyTreeMaterial = new THREE.MeshLambertMaterial({ color: 0x371D10, wireframe: false});
+        let sandyTree = new THREE.Mesh(sandyTreeGeometry, sandyTreeMaterial);
+
+        sandyTree.position.set(15, -5.5, 0);
+        sandyTree.rotation.z= 0.05;
+
+        sandyTree.scale.set(0.4,0.07,0.4);
+        scene.add(sandyTree);
+
+        //szandi fája levelei geometria -> gömb
+        let sandyTreeLeavesGeometry = new THREE.SphereGeometry( 2.5, 20, 20, 0, Math.PI * 2, 0, Math.PI);
+        let sandyTreeLeavesMaterial = new THREE.MeshLambertMaterial({ color: 0x00FF00, wireframe: false});
+        let sandyTreeLeaves = new THREE.Mesh(sandyTreeLeavesGeometry, sandyTreeLeavesMaterial);
+
+        sandyTreeLeaves.position.set(14.9, -3, 0);
+        sandyTreeLeaves.rotation.z= 0.05;
+        scene.add(sandyTreeLeaves);
+
+        /** 1. ajtó */
+
+        //ajtó kilincs geometria -> henger
+        let sandyDoorHandleGeometry = new THREE.CylinderGeometry( 0.5, 0.5, 1, 40, 1);
+        let sandyDoorHandleMaterial = new THREE.MeshLambertMaterial({ color: 0x123499, wireframe: false});
+        let sandyDoorHandle = new THREE.Mesh(sandyDoorHandleGeometry, sandyDoorHandleMaterial);
+
+        sandyDoorHandle.position.set(15, -6, 8);
+        sandyDoorHandle.rotation.z= -3.25;
+        sandyDoorHandle.rotation.x= 90 / 180 * Math.PI;
+        sandyDoorHandle.rotation.y= 90 / 180 * Math.PI;
+        sandyDoorHandle.scale.set(0.3,0.01,0.3);
+        scene.add(sandyDoorHandle);
+
+        //ajtó tekerők geometria -> vonal
+        let sandyDoorHandle1Geometry = new THREE.PlaneGeometry( 2, 2, 20, 20 );
+        let sandyDoorHandle1Material = new THREE.MeshLambertMaterial({ color: 0x123499, wireframe: true});
+        let sandyDoorHandle1 = new THREE.Mesh(sandyDoorHandle1Geometry, sandyDoorHandle1Material);
+
+        sandyDoorHandle1.position.set(15, -6, 8);
+        sandyDoorHandle1.rotation.z= -3.125;
+        sandyDoorHandle1.rotation.x= 90 / 180 * Math.PI;
+
+        sandyDoorHandle1.scale.set(0.3,0.01,0.3);
+        scene.add(sandyDoorHandle1);
+
+        //ajtó tekero geometria -> vonal
+        let sandyDoorHandle7Geometry = new THREE.PlaneGeometry( 2, 2, 20, 20 );
+        let sandyDoorHandle7Material = new THREE.MeshBasicMaterial({ color: 0x123499, wireframe: true});
+        let sandyDoorHandle7 = new THREE.Mesh(sandyDoorHandle7Geometry, sandyDoorHandle7Material);
+
+        sandyDoorHandle7.position.set(15, -6, 8);
+        sandyDoorHandle7.rotation.z= -3.125;
+        sandyDoorHandle7.rotation.x= 90 / 180 * Math.PI;
+        sandyDoorHandle7.rotation.y= 90 / 180 * Math.PI;
+        sandyDoorHandle7.scale.set(0.3,0.01,0.3);
+        scene.add(sandyDoorHandle7);
+
+        //ajtó tekero geometria -> vonal
+        let sandyDoorHandle8Geometry = new THREE.PlaneGeometry( 2, 2, 20, 20 );
+        let sandyDoorHandle8Material = new THREE.MeshBasicMaterial({ color: 0x123499, wireframe: true});
+        let sandyDoorHandle8 = new THREE.Mesh(sandyDoorHandle8Geometry, sandyDoorHandle8Material);
+
+        sandyDoorHandle8.position.set(15, -6, 8);
+        sandyDoorHandle8.rotation.z= -3.125;
+        sandyDoorHandle8.rotation.x= 90 / 180 * Math.PI;
+        sandyDoorHandle8.rotation.y= 45 / 180 * Math.PI;
+        sandyDoorHandle8.scale.set(0.3,0.01,0.3);
+        scene.add(sandyDoorHandle8);
+
+        //ajtó tekero geometria -> vonal
+        let sandyDoorHandle9Geometry = new THREE.PlaneGeometry( 2, 2, 20, 20 );
+        let sandyDoorHandle9Material = new THREE.MeshBasicMaterial({ color: 0x123499, wireframe: true});
+        let sandyDoorHandle9 = new THREE.Mesh(sandyDoorHandle9Geometry, sandyDoorHandle9Material);
+
+        sandyDoorHandle9.position.set(15, -6, 8);
+        sandyDoorHandle9.rotation.z= -3.125;
+        sandyDoorHandle9.rotation.x= 90 / 180 * Math.PI;
+        sandyDoorHandle9.rotation.y= -45 / 180 * Math.PI;
+        sandyDoorHandle9.scale.set(0.3,0.01,0.3);
+        scene.add(sandyDoorHandle9);
+
+        /** 2. ajtó*/
+
+        //ajtó kilincs 2 geometria -> henger
+        let sandyDoorHandle2Geometry = new THREE.CylinderGeometry( 0.5, 0.5, 1, 40, 1);
+        let sandyDoorHandle2Material = new THREE.MeshBasicMaterial({ color: 0x123499, wireframe: false});
+        let sandyDoorHandle2 = new THREE.Mesh(sandyDoorHandle2Geometry, sandyDoorHandle2Material);
+
+        sandyDoorHandle2.position.set(15, -6.2, 10.5);
+        sandyDoorHandle2.rotation.z= -3.125;
+        sandyDoorHandle2.rotation.x= 90 / 180 * Math.PI;
+        sandyDoorHandle2.rotation.y= 90 / 180 * Math.PI;
+        sandyDoorHandle2.scale.set(0.3,0.01,0.3);
+        scene.add(sandyDoorHandle2);
+
+        //ajtó tekerők geometria -> vonal
+        let sandyDoorHandle3Geometry = new THREE.PlaneGeometry( 2, 2, 20, 20 );
+        let sandyDoorHandle3Material = new THREE.MeshBasicMaterial({ color: 0x123499, wireframe: true});
+        let sandyDoorHandle3 = new THREE.Mesh(sandyDoorHandle3Geometry, sandyDoorHandle3Material);
+
+        sandyDoorHandle3.position.set(15, -6.2, 10.5);
+        sandyDoorHandle3.rotation.z= -3.125;
+        sandyDoorHandle3.rotation.x= 90 / 180 * Math.PI;
+        sandyDoorHandle3.rotation.y= 90 / 180 * Math.PI;
+        sandyDoorHandle3.scale.set(0.3,0.01,0.3);
+        scene.add(sandyDoorHandle3);
+
+        //ajtó tekerők geometria -> vonal
+
+        let sandyDoorHandle4Geometry = new THREE.PlaneGeometry( 2, 2, 20, 20 );
+        let sandyDoorHandle4Material = new THREE.MeshBasicMaterial({ color: 0x123499, wireframe: true});
+        let sandyDoorHandle4 = new THREE.Mesh(sandyDoorHandle4Geometry, sandyDoorHandle4Material);
+
+        sandyDoorHandle4.position.set(15, -6.2, 10.5);
+        sandyDoorHandle4.rotation.z= -3.125;
+        sandyDoorHandle4.rotation.x= 90 / 180 * Math.PI;
+
+        sandyDoorHandle4.scale.set(0.3,0.01,0.3);
+        scene.add(sandyDoorHandle4);
+
+        //ajtó tekerők geometria -> vonal
+
+        let sandyDoorHandle5Geometry = new THREE.PlaneGeometry( 2, 2, 20, 20 );
+        let sandyDoorHandle5Material = new THREE.MeshBasicMaterial({ color: 0x123499, wireframe: true});
+        let sandyDoorHandle5 = new THREE.Mesh(sandyDoorHandle5Geometry, sandyDoorHandle5Material);
+
+        sandyDoorHandle5.position.set(15, -6.2, 10.5);
+        sandyDoorHandle5.rotation.z= -3.125;
+        sandyDoorHandle5.rotation.x= 90 / 180 * Math.PI;
+        sandyDoorHandle5.rotation.y= 45 / 180 * Math.PI;
+        sandyDoorHandle5.scale.set(0.3,0.01,0.3);
+        scene.add(sandyDoorHandle5);
+
+        //ajtó tekerők geometria -> vonal
+
+        let sandyDoorHandle6Geometry = new THREE.PlaneGeometry( 2, 2, 20, 20 );
+        let sandyDoorHandle6Material = new THREE.MeshBasicMaterial({ color: 0x123499, wireframe: true});
+        let sandyDoorHandle6 = new THREE.Mesh(sandyDoorHandle6Geometry, sandyDoorHandle6Material);
+
+        sandyDoorHandle6.position.set(15, -6.2, 10.5);
+        sandyDoorHandle6.rotation.z= -3.125;
+        sandyDoorHandle6.rotation.x= 90 / 180 * Math.PI;
+        sandyDoorHandle6.rotation.y= -45 / 180 * Math.PI;
+        sandyDoorHandle6.scale.set(0.3,0.01,0.3);
+        scene.add(sandyDoorHandle6);
+
+        /** 3. objektum szandi háza */
+
+
+        /** fények */
+
+        //környezeti fény | ambient light
+        let ambientLight = new THREE.AmbientLight( 0x404040, 100 );
+        scene.add( ambientLight );
+
+        // pont fény | point light
+        let pointLight = new THREE.PointLight(0x371D10, 100, 20); //patrik háza
+        pointLight.position.set(-16, 5, 0);
+        scene.add(pointLight);
+
+        let pointLight2 = new THREE.PointLight(0x00ff00, 100, 40); //szandi háza
+        pointLight2.position.set(25, 5, 0);
+        scene.add(pointLight2);
+
+        let pointLight3 = new THREE.PointLight(0x0A2472, 30, 100); //tunyacsáp háza
+        pointLight3.position.set(0, 10, 10);
+        scene.add(pointLight3);
+
+
+
+        // segédgeometria a fényekhez
+        let pointLightHelper = new THREE.PointLightHelper(pointLight, 1);
+        scene.add(pointLightHelper);
+
+        let pointLightHelper2 = new THREE.PointLightHelper(pointLight2, 1);
+        scene.add(pointLightHelper2);
+
+        let pointLightHelper3 = new THREE.PointLightHelper(pointLight3, 1);
+        scene.add(pointLightHelper3);
+
+
+        //kontroller inicializálása
+        controls = new TrackballControls( camera, renderer.domElement );
+        controls.rotateSpeed = 1.0;
+        controls.zoomSpeed = 1.2;
+
+        renderer.render( scene, camera );
+        renderer.shadowMap.enabled = true;
+
+
+        // Billentyű eseménykezelő
+        document.addEventListener('keydown', (event) => {
+            // Ellenőrizzük, hogy a lenyomott billentyű a 'k' betű)
+            if (event.key === 'K' || event.key === 'k') {
+                // Kikapcsoljuk az ambient fényt
+                scene.remove(ambientLight);
+
+                // Kikapcsoljuk a pontfényeket
+                scene.remove(pointLight);
+                scene.remove(pointLight2);
+                scene.remove(pointLight3);
+
+                scene.remove(arrow);
+                scene.remove(arrow2);
+                scene.remove(arrow3);
+                scene.remove(arrow4);
+            }
+        });
+
+        // Billentyű eseménykezelő
+        document.addEventListener('keydown', (event) => {
+            // Ellenőrizzük, hogy a lenyomott billentyű az 'l' betű)
+            if (event.key === 'L' || event.key === 'l') {
+                // Kikapcsoljuk az ambient fényt
+                scene.add(ambientLight);
+
+                // Kikapcsoljuk a pontfényeket
+                scene.add(pointLight);
+                scene.add(pointLight2);
+                scene.add(pointLight3);
+
+                scene.add(arrow);
+                scene.add(arrow2);
+                scene.add(arrow3);
+                scene.add(arrow4);
+            }
+        });
+    }
+
+    //animáció, render, kamera forgatás
+    function animate() {
+        groupDoor.rotation.y += 0.01;
+
+        requestAnimationFrame( animate );
+        controls.update();
+        renderer.render( scene, camera );
+        renderer.shadowMap.enabled = true;
+    }
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,10 @@
+Simon Bence blender modellezés Számítógépes grafika gyakorlat 2023 őszi félév
+
+Spongyabob, szandi ajtaja modell
+
+1. Cylinder mesh (fő test)
+- x mentén 90 fokos elforgatás, z skálázás 1.5-szeres méretre
+- cylinder aljának és oldalainak törlése
+- test skálázása y mentén 1.3-al
+- extrude region-nal az oldalak kialakítása élek mentén
+- felesleges részek levágása knife tool-lal

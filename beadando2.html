@@ -1,0 +1,267 @@
+<!--A modell a spongyabob nevű sorozat/film-ből tunyacsáp házát reprezentálja-->
+
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="author" content="Simon Bence">
+    <meta name="description" content="Tunyacsáp háza">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tunyacsáp háza</title>
+
+    <style>
+        body { margin: 0 }
+        canvas { width: 100%; height: 100% }
+    </style>
+</head>
+<body>
+
+<script async src="./dist/es-module-shims.js"></script>
+<script type="importmap">
+{
+    "imports": {
+        "three": "./js-r154/build/three.module.js",
+        "trackballcontrols": "./js-r154/examples/jsm/controls/TrackballControls.js"
+    }
+}
+</script>
+
+<script type="module">
+    import * as THREE from './js-r154/build/three.module.js';
+    import { TrackballControls } from './js-r154/examples/jsm/controls/TrackballControls.js';
+
+    // Globális változók
+    let WIDTH;
+    let HEIGHT;
+    let aspectRatio
+    let renderer;
+    let scene;
+    let camera;
+    let controls;
+
+    init();
+
+    animate();
+
+    function init() {
+        //változók inicializálása
+        WIDTH = window.innerWidth;
+        HEIGHT = window.innerHeight;
+        aspectRatio = WIDTH / HEIGHT;
+
+        renderer = new THREE.WebGLRenderer( { antialias: true } );
+        renderer.setSize( WIDTH, HEIGHT );
+        renderer.setClearColor( 0x000 );
+        document.body.appendChild( renderer.domElement );
+
+        scene = new THREE.Scene();
+
+        //kamera inicializálása
+        camera = new THREE.PerspectiveCamera( 75, aspectRatio, 0.1, 1000 );
+        camera.position.set( 0, 5, 15 );
+        camera.lookAt( scene.position );
+
+        //ház alapja -> henger
+        let houseGeometry = new THREE.CylinderGeometry( 7, 10, 30, 50, 100 );
+        let houseMaterial = new THREE.MeshBasicMaterial( {color: 0x0A2472, wireframe: false} );
+        let house = new THREE.Mesh( houseGeometry, houseMaterial );
+
+        //ház pozíciója és elhelyezése a canvas-on
+        house.position.set( 0, 0, 0);
+        house.scale.set(0.5,0.5,0.5);
+        scene.add( house );
+
+
+        //ajtó geometriája -> doboz
+        let doorGeometry = new THREE.BoxGeometry(5, 8, 0.5, 30, 20, 50);
+        let doorMaterial = new THREE.MeshBasicMaterial({ color: 0x663300, wireframe: false});
+        let door = new THREE.Mesh(doorGeometry, doorMaterial);
+
+        //ajtó pozíciója és elhelyezése a házon
+        door.position.set(0, -5.5, 4.7);
+        door.scale.set(0.5,0.5,0.5);
+        door.rotation.x = 6.18;
+        scene.add(door);
+
+        //orr geometriája -> henger
+        let noseGeometry = new THREE.CylinderGeometry( 2, 4, 8, 6, 40);
+        let noseMaterial = new THREE.MeshBasicMaterial( {color: 0x123499, wireframe: false} );
+        let nose = new THREE.Mesh( noseGeometry, noseMaterial );
+
+        //orr pozíciója és elhelyezése a házon
+        nose.position.set( 0, 0, 4.2);
+        nose.scale.set(0.3,0.4,0.3);
+        nose.rotation.z= -1.62;
+        nose.rotation.x= 90 / 180 * Math.PI;
+        nose.rotation.y= 90 / 180 * Math.PI;
+        scene.add( nose );
+
+
+        //szemek geometriája -> henger
+        let eyesGeometry = new THREE.CylinderGeometry( 2, 2, 40, 40);
+        let eyesMaterial = new THREE.MeshBasicMaterial( {color: 0x123499, wireframe: false} );
+        let eyes = new THREE.Mesh( eyesGeometry, eyesMaterial );
+
+        //szemek pozíciója és elhelyezése a házon
+        eyes.position.set( 1.35, 1.1, 4);
+        eyes.rotation.z= -3.25;
+        eyes.rotation.x= 90 / 180 * Math.PI;
+        eyes.rotation.y= 90 / 180 * Math.PI;
+        eyes.scale.set(0.3,0.01,0.3);
+        scene.add( eyes );
+
+        //szemek geometriája -> henger
+        let eyes2Geometry = new THREE.CylinderGeometry( 2, 2, 40, 40);
+        let eyes2Material = new THREE.MeshBasicMaterial( {color: 0x123499, wireframe: false} );
+        let eyes2 = new THREE.Mesh( eyes2Geometry, eyes2Material );
+
+        //szemek pozíciója és elhelyezése a házon
+        eyes2.position.set( -1.35, 1.1, 4);
+        eyes2.rotation.z= -3.25;
+        eyes2.rotation.x= 90 / 180 * Math.PI;
+        eyes2.rotation.y= 90 / 180 * Math.PI;
+        eyes2.scale.set(0.3,0.01,0.3);
+        scene.add( eyes2 );
+
+        //szemöldök geometriája -> henger
+        let eyebrowsGeometry = new THREE.CylinderGeometry( 1, 1, 3, 4, 40);
+        let eyebrowsMaterial = new THREE.MeshBasicMaterial( {color: 0x123499, wireframe: false} );
+        let eyebrows = new THREE.Mesh( eyebrowsGeometry, eyebrowsMaterial );
+
+        //szemöldök pozíciója és elhelyezése a házon
+        eyebrows.position.set(0.05, 2.2, 4);
+        eyebrows.scale.set(0.5,1.5,0.5);
+        eyebrows.rotation.x= 45 / 180 * Math.PI;
+        eyebrows.rotation.z= 1.55;
+        scene.add( eyebrows );
+
+        //fülek geometriája -> doboz
+        let earsGeometry = new THREE.BoxGeometry( 20, 5, 5, 40);
+        let earsMaterial = new THREE.MeshPhongMaterial( {color: 0x123499, wireframe: false} );
+        let ears = new THREE.Mesh( earsGeometry, earsMaterial );
+
+        //fülek pozíciója és elhelyezése a házon
+        ears.position.set( 4.5, -1, 0);
+        ears.rotation.z= 96 / 180 * Math.PI;
+        ears.scale.set(0.3,0.3,0.3);
+        scene.add( ears );
+
+        //fülek geometriája -> doboz
+        let ears2Geometry = new THREE.BoxGeometry( 20, 5, 5, 40);
+        let ears2Material = new THREE.MeshPhongMaterial( {color: 0x123499, wireframe: false} );
+        let ears2 = new THREE.Mesh( ears2Geometry, ears2Material );
+        ears2.receiveShadow = true;
+        ears2.castShadow = false;
+
+        //fülek pozíciója és elhelyezése a házon
+        ears2.position.set( -4.5, -1, 0);
+        ears2.rotation.z= -96 / 180 * Math.PI;
+        ears2.scale.set(0.3,0.3,0.3);
+        scene.add( ears2 );
+
+
+        /** 2. beadandó kódja (+ ears1/2 anyagváltoztatás basic mesh-ről phong-ra) */
+
+        //félgömb geometriája -> félgömb
+        let halfSphereGeometry = new THREE.SphereGeometry( 5, 20, 20, 2, Math.PI * 2, 0, Math.PI / 2);
+        let halfSphereMaterial = new THREE.MeshLambertMaterial( {color: 0x371D10, wireframe: false} );
+        halfSphereMaterial.side = THREE.DoubleSide;
+        let halfSphere = new THREE.Mesh( halfSphereGeometry, halfSphereMaterial );
+        halfSphere.castShadow = true;
+        halfSphere.receiveShadow = false;
+
+        //félgömb pozíciója
+        halfSphere.position.set( -12, -6, 0);
+        halfSphere.rotation.z= 0;
+        scene.add( halfSphere );
+
+
+        // Nyilak létrehozása
+        let origin = new THREE.Vector3(-14,0, 0);  // Nyil kiindulási pontja
+        let direction = new THREE.Vector3(1, 0, 0);  // Nyil iránya
+        let length = 3;  // Nyil hossza
+
+        let origin2 = new THREE.Vector3(-13, -0.5, 0);  // Nyil kiindulási pontja
+        let direction2 = new THREE.Vector3(0, 1, 0);  // Nyil iránya
+        let length2 = 1;  // Nyil hossza
+
+        let origin3 = new THREE.Vector3(-13.5, -0.5, 0);  // Nyil kiindulási pontja
+        let direction3 = new THREE.Vector3(0, 1, 0);  // Nyil iránya
+        let length3 = 1;  // Nyil hossza
+
+        let origin4 = new THREE.Vector3(-12.5, -1, 0);  // Nyil kiindulási pontja
+        let direction4 = new THREE.Vector3(0, 1, );  // Nyil iránya
+        let length4 = 1;  // Nyil hossza
+
+        // Nyilak inicializálása
+        let arrow = new THREE.ArrowHelper(direction, origin, length, 0x964B00);
+        let arrow2 = new THREE.ArrowHelper(direction2, origin2, length2, 0x964B00);
+        let arrow3 = new THREE.ArrowHelper(direction3, origin3, length3, 0x964B00);
+        let arrow4 = new THREE.ArrowHelper(direction4, origin4, length4, 0x964B00);
+
+        // Nyilak hozzáadása a színtérhez
+        scene.add(arrow);
+        scene.add(arrow2);
+        scene.add(arrow3);
+        scene.add(arrow4);
+
+
+        // ambiens fény
+        let ambientLight = new THREE.AmbientLight(0x371D10, 100);
+
+        // pont fény
+        let pointLight = new THREE.PointLight(0x00ff00, 100, 10);
+        pointLight.position.set(-16, -1, 0);
+
+        // reflektorfény
+        let spotLight = new THREE.SpotLight(0xff0000, 100, 5);
+        spotLight.position.set(7, 0, 0);
+        spotLight.penumbra = 0.5;
+
+        // irányfény
+        let directionalLight = new THREE.DirectionalLight(0xffff00, 2);
+        directionalLight.position.set(-3, -1, 0);
+        directionalLight.target = ears2;
+
+        // Fények hozzáadása a színtérhez
+        scene.add(ambientLight);
+        scene.add(pointLight);
+        scene.add(spotLight);
+        scene.add(directionalLight);
+
+        // Segéd geometriák a fényekhez
+        let pointLightHelper = new THREE.PointLightHelper(pointLight, 1);
+        let spotLightHelper = new THREE.SpotLightHelper(spotLight);
+        let directionalLightHelper = new THREE.DirectionalLightHelper(directionalLight);
+
+        // Segéd geometriák hozzáadása a színtérhez
+        scene.add(pointLightHelper);
+        scene.add(spotLightHelper);
+        scene.add(directionalLightHelper);
+
+
+        /** 2. beadandó kódja */
+
+        //kontroller inicializálása
+        controls = new TrackballControls( camera, renderer.domElement );
+        controls.rotateSpeed = 1.0;
+        controls.zoomSpeed = 1.2;
+
+        renderer.render( scene, camera );
+        renderer.shadowMap.enabled = true;
+    }
+
+    //animáció
+    function animate() {
+        requestAnimationFrame( animate );
+        controls.update();
+        renderer.render( scene, camera );
+        renderer.shadowMap.enabled = true;
+
+    }
+    
+
+</script>
+
+</body>
+</html>
